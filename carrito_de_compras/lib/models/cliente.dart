@@ -1,11 +1,11 @@
 // lib/models/cliente.dart
 
 class Cliente {
-  final int? idCliente; // Nullable for new clients
+  final int? idCliente;
   final String cedula;
   final String nombre;
   final String apellido;
-  final String direccion; // Add this line
+  final String direccion;
   final String telefono;
 
   Cliente({
@@ -13,17 +13,19 @@ class Cliente {
     required this.cedula,
     required this.nombre,
     required this.apellido,
-    required this.direccion, // Add this line
+    required this.direccion,
     required this.telefono,
   });
 
+  String get nombreCompleto => '$nombre $apellido';
+
   factory Cliente.fromJson(Map<String, dynamic> json) {
     return Cliente(
-      idCliente: json['idCliente'],
+      idCliente: json['idCliente'] as int?,
       cedula: json['cedula'],
       nombre: json['nombre'],
       apellido: json['apellido'],
-      direccion: json['direccion'], // Add this line
+      direccion: json['direccion'],
       telefono: json['telefono'],
     );
   }
@@ -34,12 +36,10 @@ class Cliente {
       'cedula': cedula,
       'nombre': nombre,
       'apellido': apellido,
-      'direccion': direccion, // Add this line
+      'direccion': direccion,
       'telefono': telefono,
     };
   }
-
-  String get nombreCompleto => '$nombre $apellido';
 
   bool cedulaValida() {
     // Implementar validación de cédula según el formato requerido
@@ -63,7 +63,7 @@ class Cliente {
       cedula: cedula ?? this.cedula,
       nombre: nombre ?? this.nombre,
       apellido: apellido ?? this.apellido,
-      direccion: direccion, // Add this line
+      direccion: direccion,
       telefono: telefono,
     );
   }

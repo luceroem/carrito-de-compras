@@ -1,48 +1,41 @@
 class Producto {
   final int? idProducto;
   final String nombre;
-  final int idCategoria;
   final double precioVenta;
+  final int idCategoria;
 
   Producto({
     this.idProducto,
     required this.nombre,
-    required this.idCategoria,
     required this.precioVenta,
+    required this.idCategoria,
   });
 
-  // Método copyWith
   Producto copyWith({
     int? idProducto,
     String? nombre,
-    int? idCategoria,
     double? precioVenta,
+    int? idCategoria,
   }) {
     return Producto(
       idProducto: idProducto ?? this.idProducto,
       nombre: nombre ?? this.nombre,
-      idCategoria: idCategoria ?? this.idCategoria,
       precioVenta: precioVenta ?? this.precioVenta,
+      idCategoria: idCategoria ?? this.idCategoria,
     );
   }
 
-  // Método para mapear desde JSON
-  factory Producto.fromJson(Map<String, dynamic> json) {
-    return Producto(
-      idProducto: json['idProducto'],
-      nombre: json['nombre'],
-      idCategoria: json['idCategoria'],
-      precioVenta: double.tryParse(json['precioVenta'].toString()) ?? 0.0,
-    );
-  }
+  Map<String, dynamic> toJson() => {
+        'idProducto': idProducto,
+        'nombre': nombre,
+        'precioVenta': precioVenta,
+        'idCategoria': idCategoria,
+      };
 
-  // Método para mapear a JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'idProducto': idProducto,
-      'nombre': nombre,
-      'idCategoria': idCategoria,
-      'precioVenta': precioVenta,
-    };
-  }
+  factory Producto.fromJson(Map<String, dynamic> json) => Producto(
+        idProducto: json['idProducto'] as int?,
+        nombre: json['nombre'] as String,
+        precioVenta: (json['precioVenta'] as num).toDouble(),
+        idCategoria: json['idCategoria'] as int,
+      );
 }

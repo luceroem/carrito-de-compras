@@ -1,57 +1,59 @@
 // lib/models/venta.dart
 
-import 'package:carrito_de_compras/models/cliente.dart';
-import 'package:carrito_de_compras/models/detalle_venta.dart';
+import 'detalle_venta.dart';
 
 class Venta {
-  final int? idVenta;
+  final int? idVenta; // Nullable for new sales
   final DateTime fecha;
-  final Cliente cliente;
+  final int idCliente;
   final List<DetalleVenta> detalles;
   double total;
+  final String clienteNombre;
 
   Venta({
     this.idVenta,
     required this.fecha,
-    required this.cliente,
+    required this.idCliente,
     required this.detalles,
-    this.total = 0,
-  }) {
-    calcularTotal();
-  }
+    required this.total,
+    required this.clienteNombre,
+  });
 
   Venta copyWith({
-    int? idVenta,
-    DateTime? fecha,
-    Cliente? cliente,
-    List<DetalleVenta>? detalles,
-    double? total,
-  }) {
-    return Venta(
-      idVenta: idVenta ?? this.idVenta,
-      fecha: fecha ?? this.fecha,
-      cliente: cliente ?? this.cliente,
-      detalles: detalles ?? this.detalles,
-      total: total ?? this.total,
-    );
-  }
+      int? idVenta,
+      DateTime? fecha,
+      String? clienteNombre,
+      List<DetalleVenta>? detalles,
+      double? total,
+    }) {
+      return Venta(
+        idVenta: idVenta ?? this.idVenta,
+        fecha: fecha ?? this.fecha,
+        idCliente: idCliente,
+        clienteNombre: clienteNombre ?? this.clienteNombre,
+        detalles: detalles ?? this.detalles,
+        total: total ?? this.total,
+      );
+    }
 
-  void calcularTotal() {
-    total = detalles.fold(
-      0, 
-      (sum, detalle) => sum + (detalle.precio * detalle.cantidad)
-    );
-  }
+    void calcularTotal() {
+      total = detalles.fold(
+        0, 
+        (sum, detalle) => sum + (detalle.precio * detalle.cantidad)
+      );
+    }
+
 
   factory Venta.fromJson(Map<String, dynamic> json) {
     return Venta(
       idVenta: json['idVenta'],
       fecha: DateTime.parse(json['fecha']),
-      cliente: Cliente.fromJson(json['cliente']),
+      idCliente: json['idCliente'],
       detalles: (json['detalles'] as List)
-          .map((detalle) => DetalleVenta.fromJson(detalle))
+          .map((item) => DetalleVenta.fromJson(item))
           .toList(),
-      total: json['total']?.toDouble() ?? 0,
+      total: json['total'],
+      clienteNombre: json['clienteNombre'],
     );
   }
 
@@ -59,26 +61,10 @@ class Venta {
     return {
       'idVenta': idVenta,
       'fecha': fecha.toIso8601String(),
-      'cliente': cliente.toJson(),
+      'idCliente': idCliente,
       'detalles': detalles.map((detalle) => detalle.toJson()).toList(),
       'total': total,
+      'clienteNombre': clienteNombre,
     };
-  }
-
-  void agregarDetalle(DetalleVenta detalle) {
-    detalles.add(detalle);
-    calcularTotal();
-  }
-
-  void removerDetalle(int index) {
-    detalles.removeAt(index);
-    calcularTotal();
-  }
-
-  void actualizarCantidad(int index, int nuevaCantidad) {
-    if (index >= 0 && index < detalles.length) {
-      detalles[index].cantidad = nuevaCantidad;
-      calcularTotal();
-    }
   }
 }
