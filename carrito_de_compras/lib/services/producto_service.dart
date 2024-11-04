@@ -1,43 +1,39 @@
 import '../models/producto.dart';
-import '../services/api_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'data_service.dart';
 
 class ProductoService {
-  static const collection = 'productos';
+  final DataService _dataService = DataService();
 
   Future<List<Producto>> getAll() async {
-    try {
-      final snapshot = await ApiService.get(collection);
-      return snapshot.docs.map((doc) => 
-        Producto.fromJson(doc.data() as Map<String, dynamic>)
-      ).toList();
-    } catch (e) {
-      throw Exception('Failed to load productos: $e');
-    }
+    return _dataService.cargarProductos();
   }
 
   Future<Producto> create(Producto producto) async {
-    try {
-      final docRef = await ApiService.post(collection, producto.toJson());
-      return producto;
-    } catch (e) {
-      throw Exception('Failed to create producto: $e');
-    }
+    final productos = await _dataService.cargarProductos();
+    final nuevoProducto = producto.copyWith(idProducto: productos.length + 1);
+    productos.add(nuevoProducto);
+    await _dataService.guardarProductos(productos);
+    return nuevoProducto;
   }
 
-  Future<void> update(Producto producto) async {
-    try {
-      await ApiService.put(collection, producto.idProducto.toString(), producto.toJson());
-    } catch (e) {
-      throw Exception('Failed to update producto: $e');
+  Future<void> update(Producto productoActualizado) async {
+    final productos = await _dataService.cargarProductos();
+    final index = productos.indexWhere((p) => p?.idProducto == productoActualizado.idProducto!);
+    if (index != -1) {
+      productos[index] = productoActualizado;
+      await _dataService.guardarProductos(productos);
+    } else {
+      throw Exception('Producto no encontrado');
     }
   }
 
   Future<void> delete(int id) async {
-    try {
-      await ApiService.delete(collection, id.toString());
-    } catch (e) {
-      throw Exception('Failed to delete producto: $e');
-    }
+    final productos = await _dataService.cargarProductos();
+    productos.removeWhere((p) => p.idProducto != null && p.idProducto == id);
+    await _dataService.guardarProductos(productos);
   }
+}
+
+extension on Object? {
+  get idProducto => null;
 }

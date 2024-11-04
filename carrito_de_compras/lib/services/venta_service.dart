@@ -1,35 +1,39 @@
+import 'data_service.dart';
 import '../models/venta.dart';
-import '../services/api_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class VentaService {
-  static const collection = 'ventas';
+  final DataService _dataService = DataService();
 
   Future<List<Venta>> getAll() async {
-    try {
-      final snapshot = await ApiService.get(collection);
-      return snapshot.docs.map((doc) => 
-        Venta.fromJson(doc.data() as Map<String, dynamic>)
-      ).toList();
-    } catch (e) {
-      throw Exception('Failed to load ventas: $e');
-    }
+    return _dataService.cargarVentas();
   }
 
   Future<Venta> create(Venta venta) async {
-    try {
-      final docRef = await ApiService.post(collection, venta.toJson());
-      return venta;
-    } catch (e) {
-      throw Exception('Failed to create venta: $e');
+    final ventas = await _dataService.cargarVentas();
+    final nuevaVenta = venta.copyWith(idVenta: ventas.length + 1);
+    ventas.add(nuevaVenta);
+    await _dataService.guardarVentas(ventas);
+    return nuevaVenta;
+  }
+
+  Future<void> update(Venta ventaActualizada) async {
+    final ventas = await _dataService.cargarVentas();
+    final index = ventas.indexWhere((v) => v?.idVenta == ventaActualizada.idVenta!);
+    if (index != -1) {
+      ventas[index] = ventaActualizada;
+      await _dataService.guardarVentas(ventas);
+    } else {
+      throw Exception('Venta no encontrada');
     }
   }
 
   Future<void> delete(int id) async {
-    try {
-      await ApiService.delete(collection, id.toString());
-    } catch (e) {
-      throw Exception('Failed to delete venta: $e');
-    }
+    final ventas = await _dataService.cargarVentas();
+    ventas.removeWhere((v) => v.idVenta != null && v.idVenta == id);
+    await _dataService.guardarVentas(ventas);
   }
+}
+
+extension on Object? {
+  get idVenta => null;
 }

@@ -1,43 +1,39 @@
 import '../models/categoria.dart';
-import '../services/api_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'data_service.dart'; // Importa DataService
 
 class CategoriaService {
-  static const collection = 'categorias';
+  final DataService _dataService = DataService(); // Instancia de DataService
 
   Future<List<Categoria>> getAll() async {
-    try {
-      final snapshot = await ApiService.get(collection);
-      return snapshot.docs.map((doc) => 
-        Categoria.fromJson(doc.data() as Map<String, dynamic>)
-      ).toList();
-    } catch (e) {
-      throw Exception('Failed to load categorias: $e');
-    }
+    return _dataService.cargarCategorias();
   }
 
   Future<Categoria> create(Categoria categoria) async {
-    try {
-      final docRef = await ApiService.post(collection, categoria.toJson());
-      return categoria;
-    } catch (e) {
-      throw Exception('Failed to create categoria: $e');
-    }
+    final categorias = await _dataService.cargarCategorias();
+    final nuevaCategoria = categoria.copyWith(idCategoria: categorias.length + 1);
+    categorias.add(nuevaCategoria);
+    await _dataService.guardarCategorias(categorias);
+    return nuevaCategoria;
   }
 
-  Future<void> update(Categoria categoria) async {
-    try {
-      await ApiService.put(collection, categoria.idCategoria.toString(), categoria.toJson());
-    } catch (e) {
-      throw Exception('Failed to update categoria: $e');
+  Future<void> update(Categoria categoriaActualizada) async {
+    final categorias = await _dataService.cargarCategorias();
+    final index = categorias.indexWhere((c) => c?.idCategoria == categoriaActualizada.idCategoria!);
+    if (index != -1) {
+      categorias[index] = categoriaActualizada;
+      await _dataService.guardarCategorias(categorias);
+    } else {
+      throw Exception('Categoría no encontrada');
     }
   }
 
   Future<void> delete(int id) async {
-    try {
-      await ApiService.delete(collection, id.toString());
-    } catch (e) {
-      throw Exception('Failed to delete categoria: $e');
-    }
+    final categorias = await _dataService.cargarCategorias();
+    categorias.removeWhere((c) => c.idCategoria != null && c.idCategoria == id);
+    await _dataService.guardarCategorias(categorias);
   }
+}
+
+extension on Object? {
+  get idCategoria => null;
 }

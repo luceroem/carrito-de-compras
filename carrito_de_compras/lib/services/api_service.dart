@@ -1,22 +1,40 @@
 // lib/services/api_service.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class ApiService {
-  static final FirebaseFirestore _db = FirebaseFirestore.instance;
+  static Future<String> get _localPath async {
+    final directory = await getApplicationDocumentsDirectory();
+    return directory.path;
+  }
 
-  static Future<QuerySnapshot> get(String collection) async {
+  static Future<File> localFile(String collection) async {
+
+    final directory = await getApplicationDocumentsDirectory();
+
+    return File('${directory.path}/$collection.json');
+
+  }
+
+  static Future<List<Map<String, dynamic>>> get(String collection) async {
     try {
-      return await _db.collection(collection).get();
+      final file = await localFile(collection);
+      final contents = await file.readAsString();
+      return List<Map<String, dynamic>>.from(jsonDecode(contents));
     } catch (e) {
       print('GET Error: $e');
-      rethrow;
+      return [];
     }
   }
 
-  static Future<DocumentReference> post(String collection, Map<String, dynamic> data) async {
+  static Future<Map<String, dynamic>> post(String collection, Map<String, dynamic> data) async {
     try {
-      return await _db.collection(collection).add(data);
+      final items = await get(collection);
+      items.add(data);
+      final file = await localFile(collection);
+      await file.writeAsString(jsonEncode(items));
+      return data;
     } catch (e) {
       print('POST Error: $e');
       rethrow;
@@ -25,32 +43,49 @@ class ApiService {
 
   static Future<void> put(String collection, String id, Map<String, dynamic> data) async {
     try {
-      await _db.collection(collection).doc(id).update(data);
+      final items = await get(collection);
+      final index = items.indexWhere((item) => item['id'] == id);
+      if (index != -1) {
+        items[index] = data;
+        final file = await localFile(collection);
+        await file.writeAsString(jsonEncode(items));
+      }
     } catch (e) {
       print('PUT Error: $e');
       rethrow;
     }
   }
 
+  // lib/services/api_service.dart
   static Future<void> delete(String collection, String id) async {
     try {
-      await _db.collection(collection).doc(id).delete();
+      final items = await get(collection);
+      final updatedItems = items.where((item) => 
+        item['idCliente'].toString() != id
+      ).toList();
+      
+      final file = await localFile(collection);
+      await file.writeAsString(jsonEncode(updatedItems));
     } catch (e) {
       print('DELETE Error: $e');
       rethrow;
     }
   }
 
-  static Future<DocumentSnapshot> getById(String collection, String id) async {
+  static Future<Map<String, dynamic>?> getById(String collection, String id) async {
     try {
-      return await _db.collection(collection).doc(id).get();
+      final items = await get(collection);
+      return items.firstWhere((item) => item['id'] == id);
     } catch (e) {
       print('GET By ID Error: $e');
-      rethrow;
+      return null;
     }
   }
 
-  static Stream<QuerySnapshot> getStream(String collection) {
-    return _db.collection(collection).snapshots();
+  static Stream<List<Map<String, dynamic>>> getStream(String collection) async* {
+    while (true) {
+      yield await get(collection);
+      await Future.delayed(const Duration(seconds: 1));
+    }
   }
 }
