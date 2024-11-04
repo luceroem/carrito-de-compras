@@ -1,26 +1,50 @@
-// lib/services/api_service.dart
 import 'dart:convert';
+import 'dart:html' as html;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 class ApiService {
   static Future<String> get _localPath async {
+    if (kIsWeb) return '';
     final directory = await getApplicationDocumentsDirectory();
     return directory.path;
   }
 
+  static Future<void> _saveToStorage(String collection, String data) async {
+    if (kIsWeb) {
+      html.window.localStorage[collection] = data;
+    } else {
+      final file = await localFile(collection);
+      await file.writeAsString(data);
+    }
+  }
+
+  static Future<String?> _loadFromStorage(String collection) async {
+    if (kIsWeb) {
+      return html.window.localStorage[collection];
+    } else {
+      try {
+        final file = await localFile(collection);
+        if (await file.exists()) {
+          return await file.readAsString();
+        }
+      } catch (e) {
+        print('Load error: $e');
+      }
+      return null;
+    }
+  }
+
   static Future<File> localFile(String collection) async {
-
-    final directory = await getApplicationDocumentsDirectory();
-
-    return File('${directory.path}/$collection.json');
-
+    final path = await _localPath;
+    return File('$path/$collection.json');
   }
 
   static Future<List<Map<String, dynamic>>> get(String collection) async {
     try {
-      final file = await localFile(collection);
-      final contents = await file.readAsString();
+      final contents = await _loadFromStorage(collection);
+      if (contents == null || contents.isEmpty) return [];
       return List<Map<String, dynamic>>.from(jsonDecode(contents));
     } catch (e) {
       print('GET Error: $e');
@@ -32,8 +56,7 @@ class ApiService {
     try {
       final items = await get(collection);
       items.add(data);
-      final file = await localFile(collection);
-      await file.writeAsString(jsonEncode(items));
+      await _saveToStorage(collection, jsonEncode(items));
       return data;
     } catch (e) {
       print('POST Error: $e');
@@ -47,8 +70,7 @@ class ApiService {
       final index = items.indexWhere((item) => item['id'] == id);
       if (index != -1) {
         items[index] = data;
-        final file = await localFile(collection);
-        await file.writeAsString(jsonEncode(items));
+        await _saveToStorage(collection, jsonEncode(items));
       }
     } catch (e) {
       print('PUT Error: $e');
@@ -56,7 +78,6 @@ class ApiService {
     }
   }
 
-  // lib/services/api_service.dart
   static Future<void> delete(String collection, String id) async {
     try {
       final items = await get(collection);
@@ -64,8 +85,7 @@ class ApiService {
         item['idCliente'].toString() != id
       ).toList();
       
-      final file = await localFile(collection);
-      await file.writeAsString(jsonEncode(updatedItems));
+      await _saveToStorage(collection, jsonEncode(updatedItems));
     } catch (e) {
       print('DELETE Error: $e');
       rethrow;

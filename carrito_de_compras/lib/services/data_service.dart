@@ -7,6 +7,7 @@ import 'dart:io';
 import 'package:carrito_de_compras/models/categoria.dart';
 import 'package:carrito_de_compras/models/producto.dart';
 import 'package:carrito_de_compras/models/venta.dart';
+import 'package:carrito_de_compras/models/cliente.dart';
 
 class DataService {
   // Debug flag
@@ -39,7 +40,7 @@ class DataService {
       } else {
         final file = await _localFile(key);
         await file.writeAsString(data);
-        _log('Saved to file: ${await file.readAsString()}');
+        _log('Saved to file: ${file.path}');
       }
     } catch (e) {
       _log('Error saving $key: $e');
@@ -51,13 +52,20 @@ class DataService {
   Future<List<T>> _loadData<T>(String key, T Function(Map<String, dynamic>) fromJson) async {
     try {
       String? data;
+      
       if (kIsWeb) {
         data = html.window.localStorage[key];
-        _log('Loading $key from localStorage: $data');
+        _log('Loading from localStorage: $data');
       } else {
-        final file = await _localFile(key);
-        data = await file.readAsString();
-        _log('Loading $key from file: $data');
+        try {
+          final file = await _localFile(key);
+          if (await file.exists()) {
+            data = await file.readAsString();
+            _log('Loading from file: $data');
+          }
+        } catch (e) {
+          _log('File read error: $e');
+        }
       }
 
       if (data == null || data.isEmpty) {
@@ -98,5 +106,13 @@ class DataService {
 
   Future<List<Venta>> cargarVentas() async {
     return _loadData('ventas', Venta.fromJson);
+  }
+
+  Future<void> guardarClientes(List<Cliente> clientes) async {
+    await _saveData('clientes', clientes, (c) => c.toJson());
+  }
+
+  Future<List<Cliente>> cargarClientes() async {
+    return _loadData('clientes', Cliente.fromJson);
   }
 }

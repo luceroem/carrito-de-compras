@@ -1,5 +1,6 @@
 import 'data_service.dart';
 import '../models/venta.dart';
+import 'dart:math' show max;
 
 class VentaService {
   final DataService _dataService = DataService();
@@ -9,11 +10,31 @@ class VentaService {
   }
 
   Future<Venta> create(Venta venta) async {
-    final ventas = await _dataService.cargarVentas();
-    final nuevaVenta = venta.copyWith(idVenta: ventas.length + 1);
-    ventas.add(nuevaVenta);
-    await _dataService.guardarVentas(ventas);
-    return nuevaVenta;
+    try {
+      final ventas = await _dataService.cargarVentas();
+      final nuevoId = ventas.isEmpty ? 1 : ventas.map((v) => v.idVenta ?? 0).reduce(max) + 1;
+      
+      final nuevaVenta = Venta(
+        idVenta: nuevoId,
+        fecha: venta.fecha,
+        idCliente: venta.idCliente,
+        detalles: venta.detalles,
+        total: venta.total,
+        clienteNombre: venta.clienteNombre,
+      );
+      
+      ventas.add(nuevaVenta);
+      await _dataService.guardarVentas(ventas);
+      return nuevaVenta;
+    } catch (e) {
+      print('Error creating venta: $e');
+      rethrow;
+    }
+  }
+
+  int _generarNuevoId(List<Venta> ventas) {
+    if (ventas.isEmpty) return 1;
+    return ventas.map((v) => v.idVenta ?? 0).reduce(max) + 1;
   }
 
   Future<void> update(Venta ventaActualizada) async {
