@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/venta.dart';
 import '../services/venta_service.dart';
 import '../services/cliente_service.dart';
+import 'detalles_venta_screen.dart'; // Importar la nueva pantalla
 
 class ConsultasVentasScreen extends StatefulWidget {
   const ConsultasVentasScreen({super.key});
@@ -19,6 +20,7 @@ class ConsultasVentasScreenState extends State<ConsultasVentasScreen> {
 
   List<Venta> _ventas = [];
   List<Venta> _ventasFiltradas = [];
+  Map<int, String> _clientesNombres = {};
   DateTime? _fechaSeleccionada;
   String _filtroCliente = '';
   bool _isLoading = false;
@@ -33,6 +35,13 @@ class ConsultasVentasScreenState extends State<ConsultasVentasScreen> {
     setState(() => _isLoading = true);
     try {
       final ventas = await _ventaService.getAll();
+      for (var venta in ventas) {
+        if (!_clientesNombres.containsKey(venta.idCliente)) {
+          final cliente = await _clienteService.getClienteById(venta.idCliente);
+          _clientesNombres[venta.idCliente] = cliente?.nombreCompleto ?? 'Desconocido';
+        }
+      }
+
       setState(() {
         _ventas = ventas;
         _ventasFiltradas = ventas;
@@ -47,16 +56,17 @@ class ConsultasVentasScreenState extends State<ConsultasVentasScreen> {
   void _filtrarVentas() {
     setState(() {
       _ventasFiltradas = _ventas.where((venta) {
+        final nombreCliente = _clientesNombres[venta.idCliente] ?? '';
         final coincideCliente = _filtroCliente.isEmpty ||
-            venta.cliente.nombreCompleto
+            nombreCliente
                 .toLowerCase()
                 .contains(_filtroCliente.toLowerCase());
-                
+
         final coincideFecha = _fechaSeleccionada == null ||
             (venta.fecha.year == _fechaSeleccionada!.year &&
                 venta.fecha.month == _fechaSeleccionada!.month &&
                 venta.fecha.day == _fechaSeleccionada!.day);
-                
+
         return coincideCliente && coincideFecha;
       }).toList();
     });
@@ -79,39 +89,10 @@ class ConsultasVentasScreenState extends State<ConsultasVentasScreen> {
   }
 
   void _verDetallesVenta(Venta venta) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Detalles de la Venta'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Cliente: ${venta.cliente.nombreCompleto}'),
-              Text('Fecha: ${_formatoFecha(venta.fecha)}'),
-              Text('Total: \$${venta.total.toStringAsFixed(2)}'),
-              const Divider(),
-              const Text('Productos:', style: TextStyle(fontWeight: FontWeight.bold)),
-              ...venta.detalles.map((detalle) => ListTile(
-                title: Text(detalle.producto.nombre),
-                subtitle: Text(
-                  'Cantidad: ${detalle.cantidad}\n'
-                  'Precio: \$${detalle.precio.toStringAsFixed(2)}'
-                ),
-                trailing: Text(
-                  '\$${(detalle.cantidad * detalle.precio).toStringAsFixed(2)}'
-                ),
-              )),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
-          ),
-        ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DetallesVentaScreen(venta: venta),
       ),
     );
   }
@@ -135,17 +116,12 @@ class ConsultasVentasScreenState extends State<ConsultasVentasScreen> {
     });
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Consulta de Ventas'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_alt_off),
-            onPressed: _limpiarFiltros,
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -192,8 +168,10 @@ class ConsultasVentasScreenState extends State<ConsultasVentasScreen> {
                     itemCount: _ventasFiltradas.length,
                     itemBuilder: (context, index) {
                       final venta = _ventasFiltradas[index];
+                      final nombreCliente = _clientesNombres[venta.idCliente] ?? 'Desconocido';
+
                       return ListTile(
-                        title: Text(venta.cliente.nombreCompleto),
+                        title: Text(nombreCliente),
                         subtitle: Text(_formatoFecha(venta.fecha)),
                         trailing: Text('\$${venta.total.toStringAsFixed(2)}'),
                         onTap: () => _verDetallesVenta(venta),
@@ -206,3 +184,4 @@ class ConsultasVentasScreenState extends State<ConsultasVentasScreen> {
     );
   }
 }
+

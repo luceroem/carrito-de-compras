@@ -47,29 +47,49 @@ class VentasScreenState extends State<VentasScreen> {
   }
 
   Future<void> _buscarProductos(String query) async {
-    if (query.isEmpty) {
-      await _cargarProductos();
-      return;
-    }
-    
-    try {
-      final productos = await _productoService.getAll();
-      setState(() => _productosFiltrados = productos.where((producto) => producto.nombre.contains(query)).toList());
-    } catch (e) {
-      _mostrarError('Error al buscar productos');
-    }
+    final productos = await _productoService.getAll();
+    setState(() => _productosFiltrados = productos
+      .where((producto) => producto.nombre.contains(query) || producto.idCategoria.toString() == query)
+      .toList());
   }
 
   Future<void> _buscarCliente(String cedula) async {
-    try {
-      final cliente = await _clienteService.buscarPorCedula(cedula);
+    final cliente = await _clienteService.getClienteByCedula(cedula);
+    if (cliente != null) {
       setState(() => _clienteSeleccionado = cliente);
-    } catch (e) {
-      _mostrarCrearCliente();
+    } else {
+      // En lugar de abrir el diálogo directamente, mostrar un mensaje
+      final shouldCreateClient = await _mostrarCrearClienteDialog();
+      if (shouldCreateClient) {
+        _mostrarCrearCliente();
+      }
     }
   }
 
+  Future<bool> _mostrarCrearClienteDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cliente no encontrado'),
+        content: const Text('¿Desea registrar un nuevo cliente?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sí'),
+          ),
+        ],
+      ),
+    ).then((value) => value ?? false); // Manejar null
+  }
+
   void _mostrarCrearCliente() {
+    _nombreController.clear();
+    _apellidoController.clear();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -103,18 +123,22 @@ class VentasScreenState extends State<VentasScreen> {
         cedula: _cedulaController.text,
         nombre: _nombreController.text,
         apellido: _apellidoController.text,
-        direccion: 'Direccion por defecto', // Replace with actual value
-        telefono: 'Telefono por defecto', // Replace with actual value
+        direccion: 'Luque', // Replace with actual value
+        telefono: '0984 971 774', // Replace with actual value
       );
       final clienteCreado = await _clienteService.create(cliente);
       setState(() => _clienteSeleccionado = clienteCreado);
       Navigator.pop(context);
+      _mostrarMensaje('Cliente creado exitosamente.');
     } catch (e) {
       _mostrarError('Error al crear cliente');
     }
   }
 
   void _agregarAlCarrito(Producto producto) {
+    // Limpiar el controlador antes de mostrar el diálogo
+    _cantidadController.clear();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -125,6 +149,10 @@ class VentasScreenState extends State<VentasScreen> {
           keyboardType: TextInputType.number,
         ),
         actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
             onPressed: () {
               final cantidad = int.tryParse(_cantidadController.text) ?? 0;
@@ -137,6 +165,10 @@ class VentasScreenState extends State<VentasScreen> {
                   ));
                 });
                 Navigator.pop(context);
+                // Mostrar un mensaje de confirmación
+                _mostrarMensaje('${producto.nombre} agregado al carrito');
+              } else {
+                _mostrarError('Ingrese una cantidad válida');
               }
             },
             child: const Text('Agregar'),
@@ -147,17 +179,24 @@ class VentasScreenState extends State<VentasScreen> {
   }
 
   Future<void> _finalizarVenta() async {
-    if (_carrito.isEmpty || _clienteSeleccionado == null) {
-      _mostrarError('Complete los datos de la venta');
+    if (_clienteSeleccionado == null) {
+      _mostrarError('Seleccione o registre un cliente');
+      return;
+    }
+    if (_carrito.isEmpty) {
+      _mostrarError('El carrito está vacío');
       return;
     }
 
+    final venta = Venta(
+      fecha: DateTime.now(),
+      idCliente: _clienteSeleccionado!.idCliente!,
+      detalles: _carrito,
+      total: _calcularTotal(),
+      clienteNombre: '${_clienteSeleccionado!.nombre} ${_clienteSeleccionado!.apellido}',
+    );
+
     try {
-      final venta = Venta(
-        fecha: DateTime.now(),
-        cliente: _clienteSeleccionado!,
-        detalles: _carrito,
-      );
       await _ventaService.create(venta);
       setState(() {
         _carrito.clear();
@@ -165,9 +204,10 @@ class VentasScreenState extends State<VentasScreen> {
       });
       _mostrarMensaje('Venta realizada con éxito');
     } catch (e) {
-      _mostrarError('Error al procesar la venta');
+      _mostrarError('Error al realizar la venta');
     }
   }
+
 
   void _mostrarError(String mensaje) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -178,6 +218,109 @@ class VentasScreenState extends State<VentasScreen> {
   void _mostrarMensaje(String mensaje) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(mensaje)),
+    );
+  }
+
+  void _finalizarOrdenDesdeCarrito() {
+    if (_carrito.isEmpty) {
+      _mostrarError('El carrito está vacío');
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        final cedulaController = TextEditingController();
+        final nombreController = TextEditingController();
+        final apellidoController = TextEditingController();
+
+        return AlertDialog(
+          title: const Text('Finalizar Orden'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: cedulaController,
+                  decoration: const InputDecoration(labelText: 'Cédula del Cliente'),
+                ),
+                TextField(
+                  controller: nombreController,
+                  decoration: const InputDecoration(labelText: 'Nombre'),
+                ),
+                TextField(
+                  controller: apellidoController,
+                  decoration: const InputDecoration(labelText: 'Apellido'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  final cedula = cedulaController.text.trim();
+                  final nombre = nombreController.text.trim();
+                  final apellido = apellidoController.text.trim();
+                  
+                  if (cedula.isEmpty || nombre.isEmpty || apellido.isEmpty) {
+                    _mostrarError('Todos los campos son requeridos');
+                    return;
+                  }
+
+                  // Buscar o crear cliente
+                  Cliente cliente;
+                  final clienteExistente = await _clienteService.getClienteByCedula(cedula);
+                  
+                  if (clienteExistente != null) {
+                    cliente = clienteExistente;
+                  } else {
+                    cliente = await _clienteService.create(Cliente(
+                      cedula: cedula,
+                      nombre: nombre,
+                      apellido: apellido,
+                      direccion: 'Dirección por defecto',
+                      telefono: 'Teléfono por defecto',
+                    ));
+                  }
+
+                  // Verificar que el cliente tenga ID
+                  if (cliente.idCliente == null) {
+                    throw Exception('Error al generar ID de cliente');
+                  }
+
+                  // Crear y guardar la venta
+                  final venta = Venta(
+                    fecha: DateTime.now(),
+                    idCliente: cliente.idCliente!,
+                    detalles: List.from(_carrito),
+                    total: _calcularTotal(),
+                    clienteNombre: '${cliente.nombre} ${cliente.apellido}',
+                  );
+
+                  await _ventaService.create(venta);
+
+                  setState(() {
+                    _carrito.clear();
+                    _clienteSeleccionado = null;
+                  });
+
+                  Navigator.pop(context);
+                  _mostrarMensaje('Venta realizada con éxito');
+                } catch (e) {
+                  print('Error detallado: $e'); // Para depuración
+                  _mostrarError('Error al procesar la venta: ${e.toString()}');
+                }
+              },
+              child: const Text('Finalizar'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -195,24 +338,6 @@ class VentasScreenState extends State<VentasScreen> {
       ),
       body: Column(
         children: [
-          // Búsqueda de cliente
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: _cedulaController,
-              decoration: const InputDecoration(
-                labelText: 'Cédula del Cliente',
-                suffixIcon: Icon(Icons.search),
-              ),
-              onSubmitted: (value) => _buscarCliente(value),
-            ),
-          ),
-          // Cliente seleccionado
-          if (_clienteSeleccionado != null)
-            ListTile(
-              title: Text('${_clienteSeleccionado!.nombre} ${_clienteSeleccionado!.apellido}'),
-              subtitle: Text('Cédula: ${_clienteSeleccionado!.cedula}'),
-            ),
           // Búsqueda de productos
           Padding(
             padding: const EdgeInsets.all(8.0),
@@ -245,8 +370,8 @@ class VentasScreenState extends State<VentasScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _finalizarVenta,
-        label: const Text('Finalizar Venta'),
+        onPressed: _carrito.isNotEmpty ? _finalizarOrdenDesdeCarrito : null,
+        label: const Text('Finalizar Orden'),
         icon: const Icon(Icons.check),
       ),
     );
@@ -286,6 +411,7 @@ class VentasScreenState extends State<VentasScreen> {
       ),
     );
   }
+
 
   double _calcularTotal() {
     return _carrito.fold(
