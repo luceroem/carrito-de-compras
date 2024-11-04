@@ -1,117 +1,79 @@
+// lib/screens/consultas_ventas_screen.dart
+
 import 'package:flutter/material.dart';
-
-class Cliente {
-  final int idCliente;
-  final String cedula;
-  final String nombre;
-  final String apellido;
-
-  Cliente({
-    required this.idCliente,
-    required this.cedula,
-    required this.nombre,
-    required this.apellido,
-  });
-}
-
-class Producto {
-  final int idProducto;
-  final String nombre;
-  final double precioVenta;
-
-  Producto({required this.idProducto, required this.nombre, required this.precioVenta});
-}
-
-class DetalleVenta {
-  final Producto producto;
-  final int cantidad;
-  final double precio;
-
-  DetalleVenta({required this.producto, required this.cantidad, required this.precio});
-}
-
-class Venta {
-  final int idVenta;
-  final DateTime fecha;
-  final Cliente cliente;
-  final double total;
-  final List<DetalleVenta> detalles;
-
-  Venta({
-    required this.idVenta,
-    required this.fecha,
-    required this.cliente,
-    required this.total,
-    required this.detalles,
-  });
-}
+import '../models/venta.dart';
+import '../models/cliente.dart';
+import '../services/venta_service.dart';
+import '../services/cliente_service.dart';
 
 class ConsultasVentasScreen extends StatefulWidget {
   const ConsultasVentasScreen({super.key});
 
   @override
-  _ConsultasVentasScreenState createState() => _ConsultasVentasScreenState();
+  ConsultasVentasScreenState createState() => ConsultasVentasScreenState();
 }
 
-class _ConsultasVentasScreenState extends State<ConsultasVentasScreen> {
-  List<Venta> ventas = [
-    Venta(
-      idVenta: 1,
-      fecha: DateTime.now(),
-      cliente: Cliente(idCliente: 1, cedula: '12345678', nombre: 'Juan', apellido: 'Pérez'),
-      total: 100.0,
-      detalles: [
-        DetalleVenta(
-          producto: Producto(idProducto: 1, nombre: 'Producto 1', precioVenta: 50.0),
-          cantidad: 1,
-          precio: 50.0,
-        ),
-        DetalleVenta(
-          producto: Producto(idProducto: 2, nombre: 'Producto 2', precioVenta: 50.0),
-          cantidad: 1,
-          precio: 50.0,
-        ),
-      ],
-    ),
-    // Puedes agregar más ventas para simular datos
-  ];
+class ConsultasVentasScreenState extends State<ConsultasVentasScreen> {
+  final VentaService _ventaService = VentaService();
+  final ClienteService _clienteService = ClienteService();
+  final TextEditingController _clienteController = TextEditingController();
 
-  List<Venta> ventasFiltradas = [];
-  String filtroCliente = '';
-  DateTime? filtroFecha;
+  List<Venta> _ventas = [];
+  List<Venta> _ventasFiltradas = [];
+  DateTime? _fechaSeleccionada;
+  String _filtroCliente = '';
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    ventasFiltradas = ventas;
+    _cargarVentas();
+  }
+
+  Future<void> _cargarVentas() async {
+    setState(() => _isLoading = true);
+    try {
+      final ventas = await _ventaService.getAll();
+      setState(() {
+        _ventas = ventas;
+        _ventasFiltradas = ventas;
+      });
+    } catch (e) {
+      _mostrarError('Error al cargar ventas');
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   void _filtrarVentas() {
     setState(() {
-      ventasFiltradas = ventas.where((venta) {
-        final coincideCliente = filtroCliente.isEmpty ||
-            '${venta.cliente.nombre} ${venta.cliente.apellido}'
+      _ventasFiltradas = _ventas.where((venta) {
+        final coincideCliente = _filtroCliente.isEmpty ||
+            venta.cliente.nombreCompleto
                 .toLowerCase()
-                .contains(filtroCliente.toLowerCase());
-        final coincideFecha = filtroFecha == null ||
-            (venta.fecha.year == filtroFecha!.year &&
-                venta.fecha.month == filtroFecha!.month &&
-                venta.fecha.day == filtroFecha!.day);
+                .contains(_filtroCliente.toLowerCase());
+                
+        final coincideFecha = _fechaSeleccionada == null ||
+            (venta.fecha.year == _fechaSeleccionada!.year &&
+                venta.fecha.month == _fechaSeleccionada!.month &&
+                venta.fecha.day == _fechaSeleccionada!.day);
+                
         return coincideCliente && coincideFecha;
       }).toList();
     });
   }
 
-  void _seleccionarFecha(BuildContext context) async {
-    final fechaSeleccionada = await showDatePicker(
+  Future<void> _seleccionarFecha() async {
+    final fecha = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: _fechaSeleccionada ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
     );
-    if (fechaSeleccionada != null) {
+
+    if (fecha != null) {
       setState(() {
-        filtroFecha = fechaSeleccionada;
+        _fechaSeleccionada = fecha;
         _filtrarVentas();
       });
     }
@@ -120,94 +82,125 @@ class _ConsultasVentasScreenState extends State<ConsultasVentasScreen> {
   void _verDetallesVenta(Venta venta) {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Detalles de la Venta'),
-          content: Column(
+      builder: (context) => AlertDialog(
+        title: const Text('Detalles de la Venta'),
+        content: SingleChildScrollView(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Cliente: ${venta.cliente.nombre} ${venta.cliente.apellido}'),
-              Text('Fecha: ${venta.fecha.toLocal()}'),
+              Text('Cliente: ${venta.cliente.nombreCompleto}'),
+              Text('Fecha: ${_formatoFecha(venta.fecha)}'),
               Text('Total: \$${venta.total.toStringAsFixed(2)}'),
               const Divider(),
-              Column(
-                children: venta.detalles.map((detalle) {
-                  return ListTile(
-                    title: Text(detalle.producto.nombre),
-                    subtitle: Text('Cantidad: ${detalle.cantidad} - Precio: \$${detalle.precio.toStringAsFixed(2)}'),
-                  );
-                }).toList(),
-              ),
+              const Text('Productos:', style: TextStyle(fontWeight: FontWeight.bold)),
+              ...venta.detalles.map((detalle) => ListTile(
+                title: Text(detalle.producto.nombre),
+                subtitle: Text(
+                  'Cantidad: ${detalle.cantidad}\n'
+                  'Precio: \$${detalle.precio.toStringAsFixed(2)}'
+                ),
+                trailing: Text(
+                  '\$${(detalle.cantidad * detalle.precio).toStringAsFixed(2)}'
+                ),
+              )).toList(),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cerrar'),
-            ),
-          ],
-        );
-      },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
     );
+  }
+
+  String _formatoFecha(DateTime fecha) {
+    return '${fecha.day}/${fecha.month}/${fecha.year}';
+  }
+
+  void _mostrarError(String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensaje), backgroundColor: Colors.red),
+    );
+  }
+
+  void _limpiarFiltros() {
+    setState(() {
+      _fechaSeleccionada = null;
+      _filtroCliente = '';
+      _clienteController.clear();
+      _ventasFiltradas = _ventas;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Consultas de Ventas'),
+        title: const Text('Consulta de Ventas'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_alt_off),
+            onPressed: _limpiarFiltros,
+          ),
+        ],
       ),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              decoration: const InputDecoration(
-                labelText: 'Buscar por cliente',
-              ),
-              onChanged: (value) {
-                filtroCliente = value;
-                _filtrarVentas();
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
             child: Row(
               children: [
-                Text(filtroFecha == null
-                    ? 'Filtrar por fecha'
-                    : 'Fecha: ${filtroFecha!.toLocal()}'),
-                IconButton(
-                  icon: const Icon(Icons.calendar_today),
-                  onPressed: () => _seleccionarFecha(context),
-                ),
-                if (filtroFecha != null)
-                  IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () {
+                Expanded(
+                  child: TextField(
+                    controller: _clienteController,
+                    decoration: const InputDecoration(
+                      labelText: 'Buscar por cliente',
+                      prefixIcon: Icon(Icons.person_search),
+                    ),
+                    onChanged: (value) {
                       setState(() {
-                        filtroFecha = null;
+                        _filtroCliente = value;
                         _filtrarVentas();
                       });
                     },
                   ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.calendar_today),
+                  onPressed: _seleccionarFecha,
+                ),
               ],
             ),
           ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: ventasFiltradas.length,
-              itemBuilder: (context, index) {
-                final venta = ventasFiltradas[index];
-                return ListTile(
-                  title: Text('Venta #${venta.idVenta} - Total: \$${venta.total.toStringAsFixed(2)}'),
-                  subtitle: Text(
-                      'Cliente: ${venta.cliente.nombre} ${venta.cliente.apellido}\nFecha: ${venta.fecha.toLocal()}'),
-                  onTap: () => _verDetallesVenta(venta),
-                );
+          if (_fechaSeleccionada != null)
+            Chip(
+              label: Text(_formatoFecha(_fechaSeleccionada!)),
+              onDeleted: () {
+                setState(() {
+                  _fechaSeleccionada = null;
+                  _filtrarVentas();
+                });
               },
             ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    itemCount: _ventasFiltradas.length,
+                    itemBuilder: (context, index) {
+                      final venta = _ventasFiltradas[index];
+                      return ListTile(
+                        title: Text(venta.cliente.nombreCompleto),
+                        subtitle: Text(_formatoFecha(venta.fecha)),
+                        trailing: Text('\$${venta.total.toStringAsFixed(2)}'),
+                        onTap: () => _verDetallesVenta(venta),
+                      );
+                    },
+                  ),
           ),
         ],
       ),

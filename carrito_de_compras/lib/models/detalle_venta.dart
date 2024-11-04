@@ -1,17 +1,41 @@
-import 'package:carrito_de_compras/models/producto.dart';
+// lib/models/detalle_venta.dart
+
+import 'producto.dart';
 
 class DetalleVenta {
-  final int idVenta;
-  final int idDetalleVenta;
+  final int? idDetalleVenta;  // Nullable for new items
+  final int? idVenta;         // Nullable for new items
   final Producto producto;
-  final int cantidad;
+  int cantidad;
   final double precio;
 
   DetalleVenta({
-    required this.idVenta,
-    required this.idDetalleVenta,
+    this.idDetalleVenta,
+    this.idVenta,
     required this.producto,
     required this.cantidad,
     required this.precio,
   });
+
+  factory DetalleVenta.fromJson(Map<String, dynamic> json) {
+    return DetalleVenta(
+      idDetalleVenta: json['idDetalleVenta'],
+      idVenta: json['idVenta'],
+      producto: Producto.fromJson(json['producto']),
+      cantidad: json['cantidad'],
+      precio: json['precio'].toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'idDetalleVenta': idDetalleVenta,
+      'idVenta': idVenta,
+      'producto': producto.toJson(),
+      'cantidad': cantidad,
+      'precio': precio,
+    };
+  }
+
+  double get subtotal => cantidad * precio;
 }
