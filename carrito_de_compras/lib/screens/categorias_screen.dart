@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
-
-class Categoria {
-  final int idCategoria;
-  String nombre;
-
-  Categoria({required this.idCategoria, required this.nombre});
-}
+import '../services/categoria_service.dart';
+import '../models/categoria.dart';
 
 class CategoriasScreen extends StatefulWidget {
   const CategoriasScreen({super.key});
@@ -15,64 +10,123 @@ class CategoriasScreen extends StatefulWidget {
 }
 
 class CategoriasScreenState extends State<CategoriasScreen> {
-  final List<Categoria> categorias = [];
-  final List<Categoria> categoriasFiltradas = [];
+  String? _errorMensaje;
+  bool _isLoading = false;
+  List<Categoria> categorias = [];
+  List<Categoria> categoriasFiltradas = [];
   final TextEditingController _nombreController = TextEditingController();
   final TextEditingController _buscarController = TextEditingController();
+  final CategoriaService _categoriaService = CategoriaService();
 
   void _agregarCategoria() {
-    if (_nombreController.text.isNotEmpty) {
+  if (_nombreController.text.isNotEmpty) {
+    final nuevaCategoria = Categoria(
+      idCategoria: categorias.length + 1,
+      nombre: _nombreController.text,
+    );
+
+    setState(() => _isLoading = true); // Inicia la carga
+
+    _categoriaService.create(nuevaCategoria).then((_) {
+      _cargarCategorias(); // Recarga la lista después de agregar
+      _nombreController.clear();
+      _mostrarMensaje('Categoría agregada');
+    }).catchError((e) {
+      _mostrarError('Error al agregar categoría: $e');
+    }).whenComplete(() => setState(() => _isLoading = false)); // Finaliza la carga
+  }
+}
+
+void _filtrarCategorias(String query) {
+  setState(() {
+    categoriasFiltradas = categorias
+        .where((categoria) =>
+            categoria.nombre.toLowerCase().contains(query.toLowerCase()))
+        .toList();
+  });
+}
+
+void _editarCategoria(Categoria categoriaOriginal) {
+  _nombreController.text = categoriaOriginal.nombre;
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Editar Categoría'),
+      content: TextField(
+        controller: _nombreController,
+        decoration: const InputDecoration(labelText: 'Nombre'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            setState(() => _isLoading = true); // Muestra la carga
+            final categoriaEditada = categoriaOriginal.copyWith(nombre: _nombreController.text);
+
+             _categoriaService.update(categoriaEditada).then((_) {
+                _cargarCategorias();
+                Navigator.pop(context);
+                _mostrarMensaje('Categoría actualizada');
+
+
+            }).catchError((error) {
+                _mostrarError('Error al actualizar: $error');
+
+
+
+            }).whenComplete(() => setState(() => _isLoading = false));
+
+          },
+          child: const Text('Guardar'),
+        ),
+      ],
+    ),
+  );
+}
+
+void _eliminarCategoria(int idCategoria) {
+  setState(() => _isLoading = true);
+  _categoriaService.delete(idCategoria).then((_) {
+    _cargarCategorias();
+    _mostrarMensaje('Categoría eliminada');
+  }).catchError((error) {
+        _mostrarError('Error al eliminar: $error');
+
+  }).whenComplete(() => setState(() => _isLoading = false));
+}
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarCategorias();
+  }
+
+  Future<void> _cargarCategorias() async {
+    try {
+      final categoriasCargadas = await _categoriaService.getAll(); // Usa el servicio
       setState(() {
-        categorias.add(Categoria(
-          idCategoria: categorias.length + 1,
-          nombre: _nombreController.text,
-        ));
-        _nombreController.clear();
+        categorias = categoriasCargadas;
+        categoriasFiltradas = List.from(categorias);
+        _isLoading = false;
+        _errorMensaje = null;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMensaje = 'Error al cargar categorías: $e';
       });
     }
   }
-  
-  void _filtrarCategorias(String query) {
-    setState(() {
-      categoriasFiltradas.clear();
-      categoriasFiltradas.addAll(
-        categorias.where((categoria) => 
-          categoria.nombre.toLowerCase().contains(query.toLowerCase())
-        )
-      );
-    });
-  }
 
-  void _editarCategoria(Categoria categoria) {
-    _nombreController.text = categoria.nombre;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Editar Categoría'),
-        content: TextField(
-          controller: _nombreController,
-          decoration: const InputDecoration(labelText: 'Nombre'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                categoria.nombre = _nombreController.text;
-                _nombreController.clear();
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
-      ),
+  void _mostrarMensaje(String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensaje)),
     );
   }
 
-  void _eliminarCategoria(int index) {
-    setState(() {
-      categorias.removeAt(index);
-    });
+  void _mostrarError(String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensaje)),
+    );
   }
 
   @override

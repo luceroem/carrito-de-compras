@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import '../models/venta.dart';
-import '../models/cliente.dart';
 import '../services/venta_service.dart';
 import '../services/cliente_service.dart';
 
@@ -103,7 +102,7 @@ class ConsultasVentasScreenState extends State<ConsultasVentasScreen> {
                 trailing: Text(
                   '\$${(detalle.cantidad * detalle.precio).toStringAsFixed(2)}'
                 ),
-              )).toList(),
+              )),
             ],
           ),
         ),

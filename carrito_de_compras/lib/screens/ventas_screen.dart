@@ -103,6 +103,8 @@ class VentasScreenState extends State<VentasScreen> {
         cedula: _cedulaController.text,
         nombre: _nombreController.text,
         apellido: _apellidoController.text,
+        direccion: 'Direccion por defecto', // Replace with actual value
+        telefono: 'Telefono por defecto', // Replace with actual value
       );
       final clienteCreado = await _clienteService.create(cliente);
       setState(() => _clienteSeleccionado = clienteCreado);
