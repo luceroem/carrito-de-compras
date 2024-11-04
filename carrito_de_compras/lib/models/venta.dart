@@ -4,7 +4,7 @@ import 'package:carrito_de_compras/models/cliente.dart';
 import 'package:carrito_de_compras/models/detalle_venta.dart';
 
 class Venta {
-  final int? idVenta; // Nullable for new orders
+  final int? idVenta;
   final DateTime fecha;
   final Cliente cliente;
   final List<DetalleVenta> detalles;
@@ -18,6 +18,22 @@ class Venta {
     this.total = 0,
   }) {
     calcularTotal();
+  }
+
+  Venta copyWith({
+    int? idVenta,
+    DateTime? fecha,
+    Cliente? cliente,
+    List<DetalleVenta>? detalles,
+    double? total,
+  }) {
+    return Venta(
+      idVenta: idVenta ?? this.idVenta,
+      fecha: fecha ?? this.fecha,
+      cliente: cliente ?? this.cliente,
+      detalles: detalles ?? this.detalles,
+      total: total ?? this.total,
+    );
   }
 
   void calcularTotal() {

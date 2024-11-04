@@ -1,15 +1,30 @@
 class Producto {
-  final int idProducto;
+  final int? idProducto;
   final String nombre;
   final int idCategoria;
   final double precioVenta;
 
   Producto({
-    required this.idProducto,
+    this.idProducto,
     required this.nombre,
     required this.idCategoria,
     required this.precioVenta,
   });
+
+  // Método copyWith
+  Producto copyWith({
+    int? idProducto,
+    String? nombre,
+    int? idCategoria,
+    double? precioVenta,
+  }) {
+    return Producto(
+      idProducto: idProducto ?? this.idProducto,
+      nombre: nombre ?? this.nombre,
+      idCategoria: idCategoria ?? this.idCategoria,
+      precioVenta: precioVenta ?? this.precioVenta,
+    );
+  }
 
   // Método para mapear desde JSON
   factory Producto.fromJson(Map<String, dynamic> json) {

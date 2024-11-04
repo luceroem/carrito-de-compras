@@ -5,12 +5,16 @@ class Cliente {
   final String cedula;
   final String nombre;
   final String apellido;
+  final String direccion; // Add this line
+  final String telefono;
 
   Cliente({
     this.idCliente,
     required this.cedula,
     required this.nombre,
     required this.apellido,
+    required this.direccion, // Add this line
+    required this.telefono,
   });
 
   factory Cliente.fromJson(Map<String, dynamic> json) {
@@ -19,6 +23,8 @@ class Cliente {
       cedula: json['cedula'],
       nombre: json['nombre'],
       apellido: json['apellido'],
+      direccion: json['direccion'], // Add this line
+      telefono: json['telefono'],
     );
   }
 
@@ -28,6 +34,8 @@ class Cliente {
       'cedula': cedula,
       'nombre': nombre,
       'apellido': apellido,
+      'direccion': direccion, // Add this line
+      'telefono': telefono,
     };
   }
 
@@ -55,6 +63,8 @@ class Cliente {
       cedula: cedula ?? this.cedula,
       nombre: nombre ?? this.nombre,
       apellido: apellido ?? this.apellido,
+      direccion: direccion, // Add this line
+      telefono: telefono,
     );
   }
 }
